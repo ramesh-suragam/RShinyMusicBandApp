@@ -31,8 +31,12 @@ ui <- fluidPage(
     textInput("name", labelMandatory("Musician Name"), ""),
     textInput("band", labelMandatory("Band Name")),
     selectInput("role_in_band", labelMandatory("Role in the Band"),
-                c("",  "Vocalist", "Guitarist", "Bassist", "Drummer")),
+                c("", "Lead Vocals", "Backing vocals", "Bass", "Drums", "guitars", "keyboards")),
+    textInput("active_from:", labelMandatory("Active Year From"), ""),
+    textInput("active_from:", "Active Year To", ""),
     actionButton("submit", "Submit", class = "btn-primary")
   )
+  
+  
   
 )

@@ -9,30 +9,37 @@
 
 source("ui.R")
 library(shiny)
+library(RSQLite)
 
-fieldsAll <- c("musician_name", "musician_band", "musician_role")
-responsesDir <- file.path("data")
-epochTime <- function() {
-  as.integer(Sys.time())
-}
-
-formData <- reactive({
-  data <- sapply(fieldsAll, function(x) input[[x]])
-  data <- c(data, timestamp = epochTime())
-  data <- t(data)
-  data
-})
-
-humanTime <- function() format(Sys.time(), "%Y%m%d-%H%M%OS")
+sqlitePath <- "data/MusicDB.db"
+tbl_band <- "tbl_band"
+tbl_musician <- "tbl_musician"
 
 saveData <- function(data) {
-  fileName <- sprintf("%s_%s.csv",
-                      humanTime(),
-                      digest::digest(data))
+  # Connect to the database
+  db <- dbConnect(SQLite(), sqlitePath)
+  # Construct the update query by looping over the data fields
+  query <- sprintf(
+    "INSERT INTO %s (%s) VALUES ('%s')",
+    table, 
+    paste(names(data), collapse = ", "),
+    paste(data, collapse = "', '")
+  )
+  # Submit the update query and disconnect
+  dbGetQuery(db, query)
+  dbDisconnect(db)
+}
 
-  write.csv(x = data, file = file.path(resposnesDir, fileName),
-            row.names = FALSE, quote = TRUE)
-  }
+loadData <- function() {
+  # Connect to the database
+  db <- dbConnect(SQLite(), sqlitePath)
+  # Construct the fetching query
+  query <- sprintf("SELECT * FROM %s", tbl_band)
+  # Submit the fetch query and disconnect
+  data <- dbGetQuery(db, query)
+  dbDisconnect(db)
+  data
+}
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
@@ -47,7 +54,16 @@ shinyServer(function(input, output) {
     
     shinyjs::toggleState(id = "submit", condition = mandatoryFilled)
   })
+  
+  formData <- reactive({
+    data <- sapply(fieldsAll, function(x) input[[x]])
+    data <- c(data, timestamp = epochTime())
+    data <- t(data)
+    data
+  })
+  
   observeEvent(input$submit, {
-    saveData(formData())
+    # saveData(formData())
+    loadData()
   })
 })
