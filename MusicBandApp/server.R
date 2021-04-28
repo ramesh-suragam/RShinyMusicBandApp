@@ -19,6 +19,9 @@ tbl_musician <- "tbl_musician"
 tbl_band_musician <- "tbl_band_musician"
 tbl_album <- "tbl_album"
 
+# Creating a global connection object to database
+con <- dbConnect(SQLite(), sqlitePath)
+
 # function to get the system date 
 epochTime <- function() {
   as.integer(Sys.time())
@@ -26,37 +29,72 @@ epochTime <- function() {
 
 humanTime <- function() format(Sys.time(), "%Y%m%d-%H%M%OS")
 
-saveData <- function(data) {
-  # Connect to the database
-  db <- dbConnect(SQLite(), sqlitePath)
+# DB code to create a new band
+createBandData <- function(data) {
 
     # Construct the update query by looping over the data fields
-  query <- sprintf(
+  insert_band_query <- sprintf(
     "INSERT INTO %s (%s) VALUES ('%s')",
     tbl_band, 
     paste(names(data), collapse = ", "),
     paste(data, collapse = "', '")
   )
   
-  print(query)
-  # Submit the update query and disconnect
-  dbGetQuery(db, query)
-  dbDisconnect(db)
+  rs <- dbSendQuery(con, insert_band_query)
+  # print(dbFetch(rs))
+  dbClearResult(rs)
 }
 
-loadData <- function() {
-  # Connect to the database
-  db <- dbConnect(SQLite(), sqlitePath)
-  # Construct the fetching query
-  query <- sprintf("SELECT * FROM %s", tbl_band)
-  # Submit the fetch query and disconnect
-  data <- dbGetQuery(db, query)
-  dbDisconnect(db)
-  data
+
+
+# loadData <- function() {
+#   # Connect to the database
+#   db <- dbConnect(SQLite(), sqlitePath)
+#   # Construct the fetching query
+#   query <- sprintf("SELECT * FROM %s", tbl_band)
+#   # Submit the fetch query and disconnect
+#   data <- dbGetQuery(db, query)
+#   dbDisconnect(db)
+#   data
+# }
+
+# DB code to create a new band
+createMusicianData <- function(data) {
+  
+  # Construct the update query by looping over the data fields
+  insert_musician_query <- sprintf(
+    "INSERT INTO %s (%s) VALUES ('%s')",
+    tbl_band_musician, 
+    paste(names(data), collapse = ", "),
+    paste(data, collapse = "', '")
+  )
+  
+  rs <- dbSendQuery(con, insert_musician_query)
+  # print(dbFetch(rs))
+  dbClearResult(rs)
 }
+
+
+sqlOutputBandClass <- reactive({
+
+  sqlInputBandClass<- sprintf(
+    "SELECT distinct b_name FROM tbl_band"
+    # tbl_band
+  )
+  
+  print(sqlInputBandClass)
+
+  dbGetQuery(con, sqlInputBandClass)
+})
+
+# observe ({
+#   updateSelectInput(session,"pick_assetclass","ASSET CLASS",
+#                     choices = sqlOutputAssetClass()
+#   )
+# })
 
 # Define server logic required to draw a histogram
-shinyServer(function(input, output) {
+shinyServer(function(input, output, session) {
   observe({
     mandatoryFilled <-
       vapply(fieldsMandatory,
@@ -65,21 +103,45 @@ shinyServer(function(input, output) {
              },
              logical(1))
     mandatoryFilled <- all(mandatoryFilled)
-    
+
     shinyjs::toggleState(id = "submit", condition = mandatoryFilled)
   })
   
-  formData <- reactive({
+  # observe({
+  #   updateSelectInput(session,"m_band","Band Name:",
+  #                     choices = sqlOutputBandClass())
+  # })
+  
+  output$ui_m_band <- renderUI({
+    selectInput('m_band',
+                label ='Band Name',
+                choices=sqlOutputBandClass(),
+                selected = NULL, multiple = FALSE)
+  })
+  
+  bandFormData <- reactive({
     data <- sapply(fieldsBand, function(x) input[[x]])
     data <- c(data, b_timestamp = humanTime())
-    print(data)
-    # data <- t(data)
-    print(data)
     data
   })
   
-  observeEvent(input$submit, {
-    saveData(formData())
+  musicianFormData <- reactive({
+    data <- sapply(fieldsMusician, function(x) input[[x]])
+    data <- c(data, m_timestamp = humanTime())
+    data
+  })
+  
+  observeEvent(input$create_band, {
+    createBandData(bandFormData())
     # loadData()
   })
+  
+  observeEvent(input$create_musician, {
+    createMusicianData(musicianFormData())
+  })
 })
+
+onStop(function() {
+  dbDisconnect(con)
+})
+
