@@ -9,19 +9,22 @@
 
 library(shiny)
 
-# fieldsMandatory <- c("b_name")
+fieldsBandMandatory <- c("b_name")
+fieldsMusicianMandatory <- c("m_name", "m_band", "m_instruments")
+fieldsAlbumMandatory <- c("a_name", "a_year", "a_musician")
+
 fieldsBand <- c("b_name", "b_active_from", "b_active_to")
 fieldsMusician <- c("m_name", "m_band", "m_instruments", "m_vocals", "m_active_from", "m_active_to")
 fieldsAlbum <- c("a_name", "a_year", "a_musician")
-# 
-# labelMandatory <- function(label) {
-#   tagList(
-#     label,
-#     span("*", class = "mandatory_star")
-#   )
-# }
-# 
-# appCSS <- ".mandatory_star { color:red; }"
+
+labelMandatory <- function(label) {
+  tagList(
+    label,
+    span("*", class = "mandatory_star")
+  )
+}
+ 
+appCSS <- ".mandatory_star { color:red; }"
 # 
 # ui2 <- fluidPage(
 #   shinyjs::useShinyjs(),
@@ -38,7 +41,7 @@ fieldsAlbum <- c("a_name", "a_year", "a_musician")
 #   
 # )
 
-# globla variables
+# globlal variables
 not_sel = ""
 
 add_band_page <- tabPanel(
@@ -104,7 +107,8 @@ add_album_page <- tabPanel(
       id = "form",
       textInput("a_name", labelMandatory("Album Name"), ""),
       selectInput("a_year", "Release Year:", choices = c(not_sel, format(Sys.Date(), "%Y"):1930)),
-      selectInput("a_musician", "Album Musician:", choices = c(not_sel)),
+      uiOutput('ui_a_musician'),
+      # selectInput("a_musician", "Album Musician:", choices = c(not_sel)),
       actionButton("create_album", "Create Album", class = "btn-primary", icon=icon("plus-square"))
     ),
     mainPanel(
