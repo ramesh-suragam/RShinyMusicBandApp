@@ -7,24 +7,38 @@
 #    http://shiny.rstudio.com/
 #
 
+# Loading the required libraries
 source("ui.R")
 library(shiny)
 library(RSQLite)
 
+# declaring the database and table variables
 sqlitePath <- "data/MusicDB.db"
 tbl_band <- "tbl_band"
 tbl_musician <- "tbl_musician"
+tbl_band_musician <- "tbl_band_musician"
+tbl_album <- "tbl_album"
+
+# function to get the system date 
+epochTime <- function() {
+  as.integer(Sys.time())
+}
+
+humanTime <- function() format(Sys.time(), "%Y%m%d-%H%M%OS")
 
 saveData <- function(data) {
   # Connect to the database
   db <- dbConnect(SQLite(), sqlitePath)
-  # Construct the update query by looping over the data fields
+
+    # Construct the update query by looping over the data fields
   query <- sprintf(
     "INSERT INTO %s (%s) VALUES ('%s')",
-    table, 
+    tbl_band, 
     paste(names(data), collapse = ", "),
     paste(data, collapse = "', '")
   )
+  
+  print(query)
   # Submit the update query and disconnect
   dbGetQuery(db, query)
   dbDisconnect(db)
@@ -56,14 +70,16 @@ shinyServer(function(input, output) {
   })
   
   formData <- reactive({
-    data <- sapply(fieldsAll, function(x) input[[x]])
-    data <- c(data, timestamp = epochTime())
-    data <- t(data)
+    data <- sapply(fieldsBand, function(x) input[[x]])
+    data <- c(data, b_timestamp = humanTime())
+    print(data)
+    # data <- t(data)
+    print(data)
     data
   })
   
   observeEvent(input$submit, {
-    # saveData(formData())
-    loadData()
+    saveData(formData())
+    # loadData()
   })
 })

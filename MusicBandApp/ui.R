@@ -9,7 +9,8 @@
 
 library(shiny)
 
-fieldsMandatory <- c("name", "band")
+fieldsMandatory <- c("b_name")
+fieldsBand <- c("b_name", "b_active_from", "b_active_to")
 
 labelMandatory <- function(label) {
   tagList(
@@ -24,19 +25,14 @@ appCSS <- ".mandatory_star { color:red; }"
 ui <- fluidPage(
   shinyjs::useShinyjs(),
   shinyjs::inlineCSS(appCSS),
-  titlePanel("Musician Page"),
+  titlePanel("Band Page"),
   
   div(
     id = "form",
-    textInput("name", labelMandatory("Musician Name"), ""),
-    textInput("band", labelMandatory("Band Name")),
-    selectInput("role_in_band", labelMandatory("Role in the Band"),
-                c("", "Lead Vocals", "Backing vocals", "Bass", "Drums", "guitars", "keyboards")),
-    textInput("active_from:", labelMandatory("Active Year From"), ""),
-    textInput("active_from:", "Active Year To", ""),
+    textInput("b_name", labelMandatory("Band Name"), ""),
+    selectInput("b_active_from", "Active From:", choices = 2014:2100),
+    selectInput("b_active_to", "Active To:", choices = 2014:2100),
     actionButton("submit", "Submit", class = "btn-primary")
   )
-  
-  
   
 )
