@@ -11,6 +11,7 @@
 source("ui.R")
 library(shiny)
 library(RSQLite)
+# library(AnnotationDbi)
 
 # declaring the database and table variables
 sqlitePath <- "data/MusicDB.db"
@@ -18,12 +19,12 @@ tbl_band <- "tbl_band"
 tbl_band_musician <- "tbl_band_musician"
 tbl_album <- "tbl_album"
 
-# queries
-sqlInputBandClass<- sprintf("SELECT distinct b_name FROM tbl_band")
-sqlInputMusicianClass <- sprintf("SELECT distinct m_name FROM tbl_band_musician")
-
 # Creating a global connection object to database
 con <- dbConnect(SQLite(), sqlitePath)
+
+# queries
+sqlInputBandClass<- sprintf("SELECT distinct b_name FROM tbl_band ORDER BY b_name ASC")
+sqlInputMusicianClass <- sprintf("SELECT distinct m_name FROM tbl_band_musician ORDER BY m_name ASC")
 
 # function to get the system date 
 epochTime <- function() {
@@ -35,7 +36,9 @@ humanTime <- function() format(Sys.time(), "%Y%m%d-%H%M%OS")
 
 # Code to get list of bands from database
 sqlOutputBandClass <- reactive({
-  dbGetQuery(con, sqlInputBandClass)
+  print("print first:")
+  # print(dbGetQuery(con, sqlInputBandClass))
+  unname(dbGetQuery(con, sqlInputBandClass))
 })
 
 # Code to get list of musicians from database
@@ -45,7 +48,8 @@ sqlOutputMusicianClass <- reactive({
 
 # DB code to create a new band, musician, album
 createTableData <- function(table, data) {
-  insert_query <- sprintf("INSERT INTO %s (%s) VALUES ('%s')", table, paste(names(data), collapse = ", "), paste(data, collapse = "', '"))
+  insert_query <- sprintf('INSERT INTO %s (%s) VALUES (\"%s\")', table, paste(names(data), collapse = ", "), paste(data, collapse = "\", \""))
+  print(insert_query)
   rs <- dbSendQuery(con, insert_query)
   dbClearResult(rs)
 }
@@ -53,65 +57,71 @@ createTableData <- function(table, data) {
 # Define server logic required to draw a histogram
 shinyServer(function(input, output, session) {
   
-  sqlOutputBandClass2 <- eventReactive(input$create_band,({
-    
-    dbGetQuery(con, sqlInputBandClass)
-  }))
-  
-  sqlOutputMusicianClass2 <- reactive({
-    
-    dbGetQuery(con, sqlInputMusicianClass)
-  })
-  
-  output$ui_m_band <- renderUI({
-    selectInput('m_band',
-                label = 'Band Name',
-                choices = sqlOutputBandClass(),
-                selected = NULL, multiple = FALSE)
-  })
-  
-  output$ui_a_musician <- renderUI({
-    selectInput('a_musician',
-                label = 'Album Musician:',
-                choices = sqlOutputMusicianClass(),
-                selected = NULL, multiple = FALSE)
-  })
-  
+  # Retrieve band form data
   bandFormData <- reactive({
     data <- sapply(fieldsBand, function(x) input[[x]])
     data <- c(data, b_timestamp = humanTime())
     data
   })
   
+  # Retrieve musician form data
   musicianFormData <- reactive({
     data <- sapply(fieldsMusician, function(x) input[[x]])
     data <- c(data, m_timestamp = humanTime())
     data
   })
   
+  # Retrieve album form data
   albumFormData <- reactive({
     data <- sapply(fieldsAlbum, function(x) input[[x]])
     data <- c(data, a_timestamp = humanTime())
     data
   })
   
+  # render band drop down on initial startup
+  output$ui_m_band <- renderUI({
+    selectInput('m_band', label = 'Band Name', choices = c(not_sel, unique(as.character(unlist(sqlOutputBandClass())))), selected = NULL, multiple = FALSE)
+  })
+  
+  # render musician drop down on initial startup
+  output$ui_a_musician <- renderUI({
+    selectInput('a_musician', label = 'Album Musician', choices = c(not_sel, unique(as.character(unlist(sqlOutputMusicianClass())))), selected = NULL, multiple = FALSE)
+  })
+  
+  # Code for dynamic band dropdown
+  sqlOutputDynamicBandClass <- eventReactive(input$create_band,({
+    print("printing second:")
+    # print(dbGetQuery(con, sqlInputBandClass))
+    # unname(dbGetQuery(con, sqlInputBandClass))
+    unname(dbGetQuery(con, sqlInputBandClass))
+    # rs <- dbSendQuery(con, sqlInputBandClass)
+    # data <- dbFetch(rs)
+    # unname(data)
+    # # dbClearResult(rs)
+  }))
+  
+  # Code for dynamic musician dropdown
+  sqlOutputDynamicMusicianClass <- eventReactive(input$create_musician,({
+    unname(dbGetQuery(con, sqlInputMusicianClass))
+  }))
+  
+  # Code to create a new band
   observeEvent(input$create_band, {
     createTableData(tbl_band, bandFormData())
-    updateSelectInput(session,"m_band","Band Name",
-                      choices = sqlOutputBandClass2(),
-                      selected = NULL)
+    updateSelectInput(session, "m_band", "Band Name", choices = c(not_sel, unique(as.character(unlist(sqlOutputDynamicBandClass())))), selected = NULL)
   })
-  
+
+  # Code to create a new musician
   observeEvent(input$create_musician, {
     createTableData(tbl_band_musician, musicianFormData())
-    updateSelectInput(session,"a_musician","Album Musician:",
-                      choices = sqlOutputBandClass2(),
-                      selected = NULL)
+    updateSelectInput(session, "a_musician", "Album Musician", choices = c(not_sel, unique(as.character(unlist(sqlOutputDynamicMusicianClass())))), selected = NULL)
   })
   
+  # Code to create a new album
   observeEvent(input$create_album, {
     createTableData(tbl_album, albumFormData())
   })
+  
 })
 
 onStop(function() {
@@ -161,6 +171,6 @@ onStop(function() {
 # })
 
 # observe({
-#   updateSelectInput(session,"m_band","Band Name:",
+#   updateSelectInput(session,"m_band","Band Name",
 #                     choices = sqlOutputBandClass())
 # })
