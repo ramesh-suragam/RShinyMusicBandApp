@@ -36,8 +36,6 @@ humanTime <- function() format(Sys.time(), "%Y%m%d-%H%M%OS")
 
 # Code to get list of bands from database
 sqlOutputBandClass <- reactive({
-  print("print first:")
-  # print(dbGetQuery(con, sqlInputBandClass))
   unname(dbGetQuery(con, sqlInputBandClass))
 })
 
@@ -54,6 +52,15 @@ createTableData <- function(table, data) {
   dbClearResult(rs)
 }
 
+# DB code to get related band data
+getBandMemberData <- function(table, data) {
+  print(data)
+  select_query <- sprintf('SELECT * FROM %s WHERE m_band = \"%s\"', table, data)
+  print(select_query)
+  data <- dbGetQuery(con, select_query)
+  data
+}
+
 # Define server logic required to draw a histogram
 shinyServer(function(input, output, session) {
   
@@ -61,6 +68,12 @@ shinyServer(function(input, output, session) {
   bandFormData <- reactive({
     data <- sapply(fieldsBand, function(x) input[[x]])
     data <- c(data, b_timestamp = humanTime())
+    data
+  })
+  
+  # Retrieve view band form data
+  viewBandFormData <- reactive({
+    data <- sapply(fieldsViewBand, function(x) input[[x]])
     data
   })
   
@@ -83,6 +96,11 @@ shinyServer(function(input, output, session) {
     selectInput('m_band', label = 'Band Name', choices = c(not_sel, unique(as.character(unlist(sqlOutputBandClass())))), selected = NULL, multiple = FALSE)
   })
   
+  # render band drop down on initial startup on view band page
+  output$ui_v_b_name <- renderUI({
+    selectInput('v_band', label = 'Band Name', choices = c(not_sel, c(not_sel, unique(as.character(unlist(sqlOutputBandClass()))))), selected = NULL, multiple = FALSE)
+  })
+  
   # render musician drop down on initial startup
   output$ui_a_musician <- renderUI({
     selectInput('a_musician', label = 'Album Musician', choices = c(not_sel, unique(as.character(unlist(sqlOutputMusicianClass())))), selected = NULL, multiple = FALSE)
@@ -90,14 +108,7 @@ shinyServer(function(input, output, session) {
   
   # Code for dynamic band dropdown
   sqlOutputDynamicBandClass <- eventReactive(input$create_band,({
-    print("printing second:")
-    # print(dbGetQuery(con, sqlInputBandClass))
-    # unname(dbGetQuery(con, sqlInputBandClass))
     unname(dbGetQuery(con, sqlInputBandClass))
-    # rs <- dbSendQuery(con, sqlInputBandClass)
-    # data <- dbFetch(rs)
-    # unname(data)
-    # # dbClearResult(rs)
   }))
   
   # Code for dynamic musician dropdown
@@ -109,8 +120,15 @@ shinyServer(function(input, output, session) {
   observeEvent(input$create_band, {
     createTableData(tbl_band, bandFormData())
     updateSelectInput(session, "m_band", "Band Name", choices = c(not_sel, unique(as.character(unlist(sqlOutputDynamicBandClass())))), selected = NULL)
+    updateSelectInput(session, "v_band", "Band Name", choices = c(not_sel, unique(as.character(unlist(sqlOutputDynamicBandClass())))), selected = NULL)
   })
 
+  # Code to plot band details
+  observeEvent(input$view_band, {
+    data <- getBandMemberData(tbl_band_musician, viewBandFormData())
+    print(data)
+  })
+  
   # Code to create a new musician
   observeEvent(input$create_musician, {
     createTableData(tbl_band_musician, musicianFormData())

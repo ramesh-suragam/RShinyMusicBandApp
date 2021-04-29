@@ -14,6 +14,7 @@ fieldsMusicianMandatory <- c("m_name", "m_band", "m_instruments")
 fieldsAlbumMandatory <- c("a_name", "a_year", "a_musician")
 
 fieldsBand <- c("b_name", "b_active_from", "b_active_to")
+fieldsViewBand <- c("v_band")
 fieldsMusician <- c("m_name", "m_band", "m_instruments", "m_vocals", "m_active_from", "m_active_to")
 fieldsAlbum <- c("a_name", "a_year", "a_musician", "a_recording_type")
 
@@ -76,10 +77,8 @@ view_band_page <- tabPanel(
     sidebarPanel(
       title = "Inputs",
       id = "form",
-      textInput("b_name", labelMandatory("Band Name"), ""),
-      selectInput("b_active_from", "Active From", choices = c(not_sel, format(Sys.Date(), "%Y"):1930)),
-      selectInput("b_active_to", "Active To", choices = c(not_sel, format(Sys.Date(), "%Y"):1930)),
-      actionButton("create_band", "Create Band", class = "btn-primary", icon=icon("plus-square"))
+      uiOutput('ui_v_b_name'),
+      actionButton("view_band", "View Band Summary", class = "btn-primary", icon=icon("plus-square"))
     ),
     mainPanel(
       tabsetPanel(
@@ -130,7 +129,6 @@ view_musician_page <- tabPanel(
       title = "Inputs",
       id = "form",
       textInput("m_name", labelMandatory("Musician Name"), ""),
-      uiOutput('ui_m_band'),
       selectInput("m_instruments", "Instrument", choices = c(not_sel, "Bass", "Drums", "Guitars", "Keyboards", "Piano")),
       selectInput("m_vocals", "Vocals", choices = c(not_sel, "Lead Vocals", "Backing vocals")),
       selectInput("m_active_from", "Active From", choices = c(not_sel, format(Sys.Date(), "%Y"):1930)),
@@ -222,10 +220,6 @@ ui <- navbarPage(
     add_musician_page,
     view_musician_page
   ),
-  navbarMenu(
-    title = "Albums",
-    add_album_page,
-    view_album_page
-  ),
+  add_album_page,
   about_page
 )
