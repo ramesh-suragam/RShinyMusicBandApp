@@ -8,7 +8,10 @@
 #
 
 library(shiny)
+library(renv)
+
 source("ui.R")
 source("server.R")
 
+renv::init()
 shinyApp(ui, server)

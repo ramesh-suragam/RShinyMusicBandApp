@@ -10,7 +10,11 @@
 # Loading the required libraries
 source("ui.R")
 library(shiny)
+library(shinyjs)
 library(RSQLite)
+library(vistime)
+library(highcharter)
+library(zoo)
 # library(AnnotationDbi)
 
 # declaring the database and table variables
@@ -45,11 +49,13 @@ sqlOutputMusicianClass <- reactive({
 })
 
 # DB code to create a new band, musician, album
-createTableData <- function(table, data) {
+createTableData <- function(table, data, message, form) {
   insert_query <- sprintf('INSERT INTO %s (%s) VALUES (\"%s\")', table, paste(names(data), collapse = ", "), paste(data, collapse = "\", \""))
   print(insert_query)
   rs <- dbSendQuery(con, insert_query)
   dbClearResult(rs)
+  shinyalert("Success", message, type="success")
+  shinyjs::reset(form)
 }
 
 # DB code to get related band data
@@ -58,6 +64,22 @@ getBandMemberData <- function(table, data) {
   select_query <- sprintf('SELECT * FROM %s WHERE m_band = \"%s\"', table, data)
   print(select_query)
   data <- dbGetQuery(con, select_query)
+  if(nrow(data) ==0){
+    shinyalert("Info", "No records to display!!", type="info")
+  }
+  data
+}
+
+# DB code to get related musician data
+getMusicanAlbumData <- function(table, data) {
+  print(data)
+  select_query <- sprintf('SELECT a_musician, a_year, a_name FROM %s where a_name in 
+                          (SELECT a_name FROM %s where a_musician= \"%s\") and a_musician != \"%s\"', table, table, data, data)
+  print(select_query)
+  data <- dbGetQuery(con, select_query)
+  if(nrow(data) ==0){
+    shinyalert("Info", "No records to display!!", type="info")
+  }
   data
 }
 
@@ -84,6 +106,12 @@ shinyServer(function(input, output, session) {
     data
   })
   
+  # Retrieve view musician form data
+  viewMusicianFormData <- reactive({
+    data <- sapply(fieldsViewMusician, function(x) input[[x]])
+    data
+  })
+  
   # Retrieve album form data
   albumFormData <- reactive({
     data <- sapply(fieldsAlbum, function(x) input[[x]])
@@ -106,6 +134,11 @@ shinyServer(function(input, output, session) {
     selectInput('a_musician', label = 'Album Musician', choices = c(not_sel, unique(as.character(unlist(sqlOutputMusicianClass())))), selected = NULL, multiple = FALSE)
   })
   
+  # render musician drop down on initial startup on view musician page
+  output$ui_v_m_name <- renderUI({
+    selectInput('v_musician', label = 'Musician Name', choices = c(not_sel, c(not_sel, unique(as.character(unlist(sqlOutputMusicianClass()))))), selected = NULL, multiple = FALSE)
+  })
+  
   # Code for dynamic band dropdown
   sqlOutputDynamicBandClass <- eventReactive(input$create_band,({
     unname(dbGetQuery(con, sqlInputBandClass))
@@ -118,7 +151,7 @@ shinyServer(function(input, output, session) {
   
   # Code to create a new band
   observeEvent(input$create_band, {
-    createTableData(tbl_band, bandFormData())
+    createTableData(tbl_band, bandFormData(), "Band successfully Created!!", "form1")
     updateSelectInput(session, "m_band", "Band Name", choices = c(not_sel, unique(as.character(unlist(sqlOutputDynamicBandClass())))), selected = NULL)
     updateSelectInput(session, "v_band", "Band Name", choices = c(not_sel, unique(as.character(unlist(sqlOutputDynamicBandClass())))), selected = NULL)
   })
@@ -126,18 +159,48 @@ shinyServer(function(input, output, session) {
   # Code to plot band details
   observeEvent(input$view_band, {
     data <- getBandMemberData(tbl_band_musician, viewBandFormData())
-    print(data)
+    data_df <- data.frame(as.list(data))
+    
+    if(nrow(data_df) != 0){
+      # print(data_df)
+      
+      timeline_data <- data.frame(Name = data_df$m_name, Instruments = data_df$m_instruments, start = as.Date(as.yearmon(data_df$m_active_from)), end = as.Date(as.yearmon(data_df$m_active_to)))
+      timeline_data <- timeline_data[(timeline_data$Instruments!=''),]
+      timeline_data2 <- data.frame(Name = data_df$m_name, Instruments = data_df$m_vocals, start = as.Date(as.yearmon(data_df$m_active_from)), end = as.Date(as.yearmon(data_df$m_active_to)))
+      timeline_data2 <- timeline_data2[(timeline_data2$Instruments!=''),]
+      timeline_data <- rbind(timeline_data, timeline_data2)
+      
+      output$plot1 <- renderHighchart({
+        hc_vistime(timeline_data,
+                   col.event = "Name",
+                   col.group = "Instruments")
+      }) 
+    }
   })
   
   # Code to create a new musician
   observeEvent(input$create_musician, {
-    createTableData(tbl_band_musician, musicianFormData())
+    createTableData(tbl_band_musician, musicianFormData(), "Musician successfully Created!!", "form3")
+    updateSelectInput(session, "v_musician", "View Musician", choices = c(not_sel, unique(as.character(unlist(sqlOutputDynamicMusicianClass())))), selected = NULL)
     updateSelectInput(session, "a_musician", "Album Musician", choices = c(not_sel, unique(as.character(unlist(sqlOutputDynamicMusicianClass())))), selected = NULL)
   })
-  
+
+  # Code to plot related musician details
+  observeEvent(input$view_musician, {
+    data <- getMusicanAlbumData(tbl_album, viewMusicianFormData())
+    data_df <- data.frame(as.list(data))
+    print(data_df)
+    
+    names(data_df)[names(data_df) == "a_musician"] <- "Worked With"
+    names(data_df)[names(data_df) == "a_year"] <- "In the Year"
+    names(data_df)[names(data_df) == "a_name"] <- "On the Album"
+    
+    output$table1 <- renderTable(data_df)
+  })
+    
   # Code to create a new album
   observeEvent(input$create_album, {
-    createTableData(tbl_album, albumFormData())
+    createTableData(tbl_album, albumFormData(), "Album successfully Created!!", "form5")
   })
   
 })
